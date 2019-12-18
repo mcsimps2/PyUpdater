@@ -66,7 +66,7 @@ class TestData(object):
 class TestBasicAuth(object):
     def test_basic_auth(self):
         headers = {"basic_auth": "user:pass"}
-        fd = FileDownloader("test", ["test"], urllb3_headers=headers)
+        fd = FileDownloader("test", ["test"], headers=headers)
         http = fd._get_http_pool(secure=True)
         sc = http.request("GET", "https://httpbin.org/basic-auth/user/pass").status
         assert sc == 200
