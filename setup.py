@@ -53,7 +53,7 @@ setup(
     author="JMSwag",
     author_email="johnymoswag@gmail.com",
     url="https://www.pyupdater.org",
-    download_url=("https://github.com/mcsimps2/PyUpdater/archive/generic-http-headers.zip"),
+    download_url=("https://github.com/mcsimps2/PyUpdater/archive/generic-http-headers-2.zip"),
     license="MIT",
     keywords=KEYWORDS,
     extras_require={"s3": extra_s3, "scp": extra_scp, "all": [extra_s3, extra_scp]},
