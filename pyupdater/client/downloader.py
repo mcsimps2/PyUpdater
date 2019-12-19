@@ -150,11 +150,10 @@ class FileDownloader(object):
             _http = urllib3.PoolManager(timeout=self.http_timeout)
 
         if self.headers:
-            # No futures available for getargspec, so use this alternative method for Py2/3 compatibility
-            try:
+            if six.PY3:
                 # Python3
                 urllib_keys = inspect.getfullargspec(urllib3.util.make_headers).args
-            except AttributeError:
+            else:
                 # Python2 fallback
                 urllib_keys = inspect.getargspec(urllib3.util.make_headers).args
             urllib_headers = {header: value for header, value in six.iteritems(self.headers) if header in urllib_keys}
