@@ -95,7 +95,7 @@ progress_hooks (list): List of callbacks
 
 data_dir (str): Path to custom update folder
 
-headers (dict): A dictionary of generic headers and/or urllib3.utils.make_headers compatible arguments
+headers (dict): A dictionary of generic and/or urllib3.utils.make_headers compatible headers
 
 test (bool): Used to initialize a test client
 
