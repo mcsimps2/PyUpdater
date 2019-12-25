@@ -653,8 +653,6 @@ class LibUpdate(object):
             current_version=self.current_version,
             latest_version=self.latest,
             update_folder=self.update_folder,
-            http_timeout=self.http_timeout,
-            headers=self.headers,
             **self.init_data
         )
 
