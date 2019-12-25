@@ -772,7 +772,10 @@ class AppUpdate(LibUpdate):  # pragma: no cover
         try:
             self._extract_update()
             if self._is_win:
-                self._win_overwrite()
+                if self.strategy == UpdateStrategy.RENAME:
+                    self._win_rename()
+                else:
+                    self._win_overwrite()
             else:
                 self._overwrite()
         except ClientError as err:
