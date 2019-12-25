@@ -68,6 +68,8 @@ class Patcher(object):
         max_download_retries (int): Number of times to retry a download
 
         headers (dict): Headers to be used with http request.  Accepts urllib3 and generic headers.
+
+        http_timeout (int): HTTP timeout or None
     """
 
     def __init__(self, **kwargs):
