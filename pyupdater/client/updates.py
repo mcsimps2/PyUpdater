@@ -97,16 +97,17 @@ def dir_requires_admin(dir):
 def hide_file(file):
     ret = ctypes.windll.kernel32.SetFileAttributesW(file, 0x02)
     if not ret:
-        raise ctypes.WinError("Failed to hide file")
+        # WinError will automatically grab the relevant code and message
+        raise ctypes.WinError()
 
 
 def unhide_file(file):
     attrs = ctypes.windll.kernel32.GetFileAttributesW(file)
     if attrs == -1:
-        raise ctypes.WinError("Failed to retrieve file attributes")
+        raise ctypes.WinError()
     ret = ctypes.windll.kernel32.SetFileAttributesW(file, attrs & (~0x02))
     if not ret:
-        raise ctypes.WinError("Failed to unhide file")
+        raise ctypes.WinError()
 
 
 def win_run(command, args, admin=False):
