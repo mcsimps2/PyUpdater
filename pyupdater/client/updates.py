@@ -836,7 +836,7 @@ class AppUpdate(LibUpdate):  # pragma: no cover
         r = Restarter(current_app, name=self.name)
         r.process()
 
-    def _win_rename_restart(self):
+    def _win_rename(self):
         exe_name = self.name + ".exe"
         current_app = os.path.join(self._current_app_dir, exe_name)
         old_exe_name = exe_name + ".old"
@@ -870,7 +870,12 @@ class AppUpdate(LibUpdate):  # pragma: no cover
             hide_file(old_app)
         except WindowsError as e:
             # Failed to hide file, which is fine - we can still continue
-            log.error("Failed to hide file, but attempting to continue")
+            log.error("Failed to hide file")
+
+        return old_app, current_app, updated_app
+
+    def _win_rename_restart(self):
+        old_app, current_app, updated_app = self._win_rename()
 
         try:
             r = Restarter(current_app, name=self.name, strategy=UpdateStrategy.RENAME)
