@@ -97,6 +97,11 @@ data_dir (str): Path to custom update folder
 
 headers (dict): A dictionary of generic and/or urllib3.utils.make_headers compatible headers
 
+strategy (str): The update strategy to use.  By default, the overwrite
+strategy is used.  Accepts any of `UpdateStrategy.DEFAULT`,
+`UpdateStrategy.OVERWRITE`, and `UpdateStrategy.RENAME` (only available
+on Windows for single file bundles).
+
 test (bool): Used to initialize a test client
 
 #### Methods
