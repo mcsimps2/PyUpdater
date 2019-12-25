@@ -34,6 +34,7 @@ import tarfile
 import threading
 import zipfile
 import six
+import ctypes
 
 from dsdev_utils.helpers import Version
 from dsdev_utils.paths import ChDir, get_mac_dot_app_dir, remove_any
@@ -91,6 +92,21 @@ def dir_requires_admin(dir):
         return False
     except IOError:
         return True
+
+
+def hide_file(file):
+    ret = ctypes.windll.kernel32.SetFileAttributesW(file, 0x02)
+    if not ret:
+        raise ctypes.WinError("Failed to hide file")
+
+
+def unhide_file(file):
+    attrs = ctypes.windll.kernel32.GetFileAttributesW(file)
+    if attrs == -1:
+        raise ctypes.WinError("Failed to retrieve file attributes")
+    ret = ctypes.windll.kernel32.SetFileAttributesW(file, attrs & (~0x02))
+    if not ret:
+        raise ctypes.WinError("Failed to unhide file")
 
 
 def win_run(command, args, admin=False):
@@ -204,13 +220,21 @@ def gen_user_friendly_version(internal_version):
     return version
 
 
+class UpdateStrategy:
+    """Enum representing the update strategies available"""
+    DEFAULT = "overwrite"       # The default strategy to use.  Currently is the overwrite strategy
+    OVERWRITE = "overwrite"     # Overwrites the binary in place
+    RENAME = "rename"           # Renames the binary.  Only available for Windows single file bundled executables
+
+
 class Restarter(object):  # pragma: no cover
     def __init__(self, current_app, **kwargs):
         self.current_app = current_app
         self.name = kwargs.get("name", "")
+        self.strategy = kwargs.get("strategy", UpdateStrategy.DEFAULT)
         log.debug("Current App: %s", self.current_app)
         self.is_win = sys.platform == "win32"
-        if self.is_win is True:
+        if self.is_win is True and self.strategy == UpdateStrategy.DEFAULT:
             self.data_dir = kwargs.get("data_dir")
             self.bat_file = os.path.join(self.data_dir, "update.bat")
             self.vbs_file = os.path.join(self.data_dir, "invis.vbs")
@@ -219,7 +243,7 @@ class Restarter(object):  # pragma: no cover
             log.debug("Update path: %s", self.updated_app)
 
     def process(self, win_restart=True):
-        if self.is_win:
+        if self.is_win and self.strategy == UpdateStrategy.DEFAULT:
             if win_restart is True:
                 self._win_overwrite_restart()
             else:
@@ -428,6 +452,9 @@ class LibUpdate(object):
         self.http_timeout = data.get("http_timeout")
 
         self.downloader = data.get("downloader")
+
+        # The update strategy to use
+        self.strategy = data.get("strategy", UpdateStrategy.DEFAULT)
 
         # The latest version available
         self.latest = get_highest_version(
@@ -729,7 +756,10 @@ class AppUpdate(LibUpdate):  # pragma: no cover
             self._extract_update()
 
             if self._is_win:
-                self._win_overwrite_restart()
+                if self.strategy == UpdateStrategy.RENAME:
+                    self._win_rename_restart()
+                else:
+                    self._win_overwrite_restart()
             else:
                 self._overwrite()
                 self._restart()
@@ -804,6 +834,60 @@ class AppUpdate(LibUpdate):  # pragma: no cover
 
         r = Restarter(current_app, name=self.name)
         r.process()
+
+    def _win_rename_restart(self):
+        exe_name = self.name + ".exe"
+        current_app = os.path.join(self._current_app_dir, exe_name)
+        old_exe_name = exe_name + ".old"
+        old_app = os.path.join(self._current_app_dir, old_exe_name)
+        updated_app = os.path.join(self.update_folder, exe_name)
+
+        # detect if is a folder
+        if os.path.exists(os.path.join(self.update_folder, self.name)):
+            raise ClientError("The rename strategy is only supported for one file bundled executables")
+
+        # Remove the old app from previous updates
+        if os.path.exists(old_app):
+            os.unlink(old_app)
+
+        # On Windows, it's possible to rename a currently running exe file
+        os.rename(current_app, old_app)
+
+        # Any operation from here forward will require rollback on failure
+        try:
+            os.rename(updated_app, current_app)
+        except OSError as e:
+            log.error("Failed to move updated app into position, rolling back")
+            # Rollback strategy: move current app back into position
+            if os.path.exists(current_app):
+                os.unlink(current_app)
+            os.rename(old_app, current_app)
+            raise e
+
+        try:
+            # Hide the old app
+            hide_file(old_app)
+        except WindowsError as e:
+            # Failed to hide file, which is fine - we can still continue
+            log.error("Failed to hide file, but attempting to continue")
+
+        try:
+            r = Restarter(current_app, name=self.name, strategy=UpdateStrategy.RENAME)
+            r.process()
+        except OSError as e:
+            # Raised by os.execl
+            log.error("Failed to launch updated app, rolling back")
+            # Rollback strategy: unhide old app, delete current app, move old app back
+            try:
+                unhide_file(old_app)
+            except WindowsError:
+                # Better to stay hidden than to just fail at this point
+                log.error("Could not unhide file in rollback process")
+            # Rename does not overwrite on Windows, so will need to unlink
+            os.unlink(current_app)
+            # Move old app back
+            os.rename(old_app, current_app)
+            raise e
 
     def _win_overwrite(self):
         # Windows: Moves update to current directory of running
